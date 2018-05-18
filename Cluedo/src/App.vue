@@ -1,6 +1,12 @@
 <template>
   <div id="app">
-    <router-view :Lobbies="Lobbies" :LobbyMembers="LobbyMembers" :PlayerData="PlayerData"/>
+    <router-view v-on:setPlayerPlaying="setPlayerPlaying($event)"
+      :HostId="HostId"
+      :playerPlaying="currentPlayerPlaying"
+      :Lobbies="Lobbies"
+      :LobbyMembers="LobbyMembers"
+      :PlayerData="PlayerData"
+    />
   </div>
 </template>
 
@@ -10,11 +16,23 @@ export default {
   props: ['Lobbies', 'LobbyMembers', 'PlayerData'],
   data() {
     return {
-      
+      currentPlayerPlaying: '',
+      HostId: ''
     }
   },
   created(){
     //this.$socket.emit('test', {name: 'Hello'})
+  },
+  methods: {
+    setPlayerPlaying(data){
+      this.HostId = data.findingIdentification;
+      this.currentPlayerPlaying = data.playerPlaying;
+    }
+  },
+  sockets: {
+    changeWhoIsPlaying: function(data){
+      this.currentPlayerPlaying = data;
+    }
   }
 }
 </script>

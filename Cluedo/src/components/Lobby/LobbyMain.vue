@@ -60,6 +60,7 @@ export default {
       //console.log(data)
     },
     sendGetPlayerData: function(data){
+      this.$emit('setPlayerPlaying', data);
       this.$socket.emit('GetPlayerData', data.findingIdentification);
     }
   }

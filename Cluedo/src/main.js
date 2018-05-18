@@ -26,6 +26,7 @@ new Vue({
       //this.$socket.emit('joinLobby', 'TEST');
     },
     Lobby: function(data){
+      this.LobbyMembers = [];
       this.LobbyMembers = data;
     },
     AllLobies: function(data){
@@ -36,7 +37,16 @@ new Vue({
     },
     ReturnOfPlayerData: function(data){
       this.PlayerData = data;
-      router.push({ name: 'GameMain', params: { id: '123' }});
+      console.log(data);
+      if(this.$route.name !== 'GameMain'){
+        router.push({ name: 'GameMain', params: { id: '123' }});
+      }
+    },
+    ReturnOfPlayerData2: function(data){
+      this.PlayerData.playersTurn = data;
+    },
+    PlayerUpdateData: function(data){
+      this.$socket.emit('GetPlayerData2', data.HostID);
     }
   }
 })

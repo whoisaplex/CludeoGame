@@ -29,16 +29,22 @@
           </div>
         </div>
       </div>
+      <div v-if="playerHasTurn" class="button-holders">
+        <button @click="makeGuess()">Make Guess</button>
+        <button @click="makeAccusation()">Make Accusation</button>
+      </div>
   </div>
 </template>
 
 <script>
 export default {
   name: 'AccusationTab',
-  props: ['gameData', 'playerData'],
+  props: ['gameData', 'playerData', 'playerHasTurn', 'HostId'],
   data() {
     return {
-      Guess: {Character: '', Weapon: '', Room: ''}
+      Guess: {Character: '', Weapon: '', Room: ''},
+      isTurn: this.playerHasTurn,
+      hasClicked: false
     }
   },
   methods:{
@@ -60,12 +66,49 @@ export default {
     },
     setRoom(Char){
       this.Guess.Room = Char;
+    },
+    makeGuess(){
+      let foundEmpty = false;
+      let tempArray = [this.Guess.Character, this.Guess.Weapon, this.Guess.Room];
+      tempArray.forEach(item => {
+        if(item === '') foundEmpty = true;
+      });
+      if(foundEmpty){
+        console.log('Not everything is filled in')
+      }else{
+        this.$socket.emit('PlayersTurnSendingCards', {Senderid: this.$socket.id, HostID: this.HostId, Cards: this.Guess});
+        this.hasClicked = true;
+        this.Guess = {Character: '', Weapon: '', Room: ''};
+      }
+    },
+    makeAccusation(){
+      console.log('accusation')
     }
   }
 }
 </script>
 
 <style>
+  .button-holders{
+    width:100%;
+    margin-top:40px;
+    display:flex;
+    justify-content: space-around;
+  }
+  .button-holders button{
+    width:calc(50% - 20px);
+    padding:10px 0px;
+    background:#D32F2F;
+    border:none;
+    color:white;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    cursor:pointer;
+    outline:none;
+  }
+  .button-holders button:nth-child(odd){
+    background:#4CAF50;
+  }
   .cards-holder{
     display:flex;
     flex-wrap:wrap;
@@ -87,6 +130,9 @@ export default {
     min-height:10px;
     display:flex;
     flex-direction: column;
+  }
+  .Characters-container:first-of-type{
+    padding-top:10px;
   }
   .Character{
     width:calc(33% - 12px);

@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import Router from 'vue-router'
-import HelloWorld from '@/components/HelloWorld'
+import Intro from '@/components/intro/Intro'
 import LobbyMain from '@/components/Lobby/LobbyMain'
 import GameMain from '@/components/Game/GameMain'
 
@@ -11,7 +11,7 @@ export default new Router({
     {
       path: '/',
       name: 'HelloWorld',
-      component: HelloWorld
+      component: Intro
     },
     {
       path: '/Lobby/:id',

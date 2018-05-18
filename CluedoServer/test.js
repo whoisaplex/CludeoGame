@@ -79,6 +79,49 @@ const gameFunctions = {
       TempCardsArray.splice(0, 3);
     });
     return TempPlayerArray;
+  },
+
+  PlayersWhoHasCards: function(data, players){
+    let newArray = this.RemoveSenderIdFromArray(data.Senderid, players)
+    let PepoleToQustion = this.WhatPlayersShouldGetQuestion(data.Cards.Character, data.Cards.Weapon, data.Cards.Room, newArray);
+    return PepoleToQustion;
+  },
+  RemoveSenderIdFromArray(senderid, players){
+    return players.filter(player => {
+      if(player.PlayerID !== senderid){
+        return true;
+      }else{
+        return false;
+      }
+    });
+  },
+  WhatPlayersShouldGetQuestion(_character, _weapon, _room, players){
+    return players.filter(player => {
+      let hasCard = false;
+      let indexs = [];
+
+      player.PlayerCards.forEach((card, index, object) => {
+        if(card.item === _character){
+          hasCard = true;
+        }else{
+          if(card.item === _weapon){
+            hasCard = true;
+          }else{
+            if(card.item === _room){
+              hasCard = true;
+            }else{
+              indexs.push(index);
+            }
+          }
+        }
+      });
+      indexs.reverse();
+      indexs.forEach(item => {
+         player.PlayerCards.splice(item, 1);
+      });
+
+      return hasCard;
+    });
   }
 }
 

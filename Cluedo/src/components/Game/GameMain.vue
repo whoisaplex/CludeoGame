@@ -1,66 +1,93 @@
 <template>
   <div>
-
-    <AccusationTab :gameData="gametex" :playerData="PlayerData.PlayerCards" class="Accusation-sheet-container"/>
-
-    <div class="toggleCards" @click="toggleCards()"></div>
-
-    <!--
-    <div v-if="showCards" class="card-container">
-      <div v-for="card in PlayerData.PlayerCards" class="card">
-        <div class="card-text">
-          <p>{{card.item}}</p>
-        </div>
-        <div class="card-img" :style="{'background-image' : 'url('+ getCardImg(card.item, card.type) +')'}"></div>
-        <div class="card-text rotated">
-          <p>{{card.item}}</p>
-        </div>
-      </div>
+    <div class="whoisplaying">
+      <p>IT'S {{playerPlaying.NAME}} TURN TO PLAY</p>
     </div>
-    -->
+    <p class="toggleAccusationSheet"
+      @click="toggleAccusation = !toggleAccusation"
+      :style="{'right': toggleAccusation ? 'calc(30vw + 3px)' : '3px'}">?</p>
+
+    <GameCards v-if="showCards && isQuestioned === false && showingGottenCard === false"
+      :isQuestioned="isQuestioned"
+      :Cards="PlayerData.PlayerCards"
+      :gameData="gametex"
+      class="card-container"
+    />
+    <GameCards v-if="isQuestioned"
+      :HostID="HostId"
+      :senderID="senderID"
+      :isQuestioned="isQuestioned"
+      :Cards="questionedData"
+      :gameData="gametex"
+      @noLongerQuestioned="changeQuestionedStatus"
+      class="card-container"
+    />
+    <GameCards v-if="isQuestioned === false && showingGottenCard === true"
+      :HostID="HostId"
+      :showingGottenCard="showingGottenCard"
+      :isQuestioned="isQuestioned"
+      :Cards="[shownCardData.Cards]"
+      :gameData="gametex"
+      @hasConfirmed="changeShowingGottenCard"
+      class="card-container"
+    />
+
+    <AccusationTab :HostId="HostId"
+      :gameData="gametex"
+      :playerData="PlayerData.PlayerCards"
+      :playerHasTurn="PlayerData.playersTurn"
+      class="Accusation-sheet-container"
+      :style="{'right': toggleAccusation ? '0px' : '-30vw'}"
+    />
+    <div class="toggleCards" @click="toggleCards()"></div>
 
   </div>
 </template>
 
 <script>
 import AccusationTab from './AccusationTab'
+import GameCards from './GameCards'
 import GameTextures from './GameTextures'
 export default {
   name: 'GameMain',
-  props: ['PlayerData'],
+  props: ['PlayerData', 'playerPlaying', 'HostId'],
   components: {
-    'AccusationTab': AccusationTab
+    'AccusationTab': AccusationTab,
+    'GameCards': GameCards
   },
   data() {
     return {
       gametex: GameTextures,
       showCards: true,
+      isQuestioned: false,
+      questionedData: undefined,
+      senderID: undefined,
+      shownCardData: undefined,
+      showingGottenCard: false,
+      toggleAccusation: false
     }
   },
   methods:{
-    getCardImg(item, type){
-      let imgurl;
-      switch(type){
-        case 'Character':
-          this.gametex.Characters.forEach(char => {
-            if(char.item === item){imgurl = char.url;}
-          });
-          break;
-        case 'Room':
-          this.gametex.Rooms.forEach(rooms => {
-            if(rooms.item === item){imgurl = rooms.url;}
-          });
-          break;
-        case 'Weapon':
-          this.gametex.Weapons.forEach(weapon => {
-            if(weapon.item === item){imgurl = weapon.url;}
-          });
-          break;
-      }
-      return imgurl;
-    },
     toggleCards(){
       this.showCards = !this.showCards;
+    },
+    changeQuestionedStatus(){
+      this.isQuestioned = false;
+    },
+    changeShowingGottenCard(){
+      this.showingGottenCard = false;
+    }
+  },
+  sockets: {
+    questioning: function(data){
+      this.isQuestioned = true;
+      this.toggleAccusation = false;
+      this.questionedData = data.Cards;
+      this.senderID = data.Senderid;
+    },
+    SendGottenCard: function(data){
+      this.shownCardData = data;
+      this.showingGottenCard = true;
     }
   }
 }
@@ -70,15 +97,26 @@ export default {
   body{
     background:#232323;
   }
-
+  .whoisplaying{
+    width:100vw;
+    position:fixed;
+    text-align: center;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+  }
+  .whoisplaying p{
+    padding:10px 0px;
+    background:rgba(76, 175, 80, 0.7);
+    color:white;
+  }
   .Accusation-sheet-container{
     width:30vw;
     min-height:100vh;
     background:#121212;
     position:fixed;
-    right:0px;
+    right:-30vw;
     z-index:2;
     box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+    transition: all 1s;
   }
   .Accusation-title{
     padding-left:10px;
@@ -113,7 +151,6 @@ export default {
     cursor:pointer;
   }
 
-
   .toggleCards{
     width:75px;
     height:75px;
@@ -134,50 +171,19 @@ export default {
     align-items: center;
     position:fixed;
     animation: flyin 1s;
-    z-index:3;
+  }
+  .toggleAccusationSheet{
+    position:fixed;
+    font-size:30px;
+    color:white;
+    cursor:pointer;
+    z-index:10;
+    right:10px;
+    top:3px;
+    transition: all 1s;
   }
   @keyframes flyin {
     0%{transform: translateY(50vw);}
     100%{transform: translateY(0px);}
   }
-  .card{
-    width:250px;
-    height:350px;
-    background:black;
-    display:flex;
-    flex-direction: column;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
-    transition: all .3s;
-    margin: 0px 15px;
-    cursor:pointer;
-    border-radius: 10px;
-  }
-  .card:hover{
-    transform:scale(1.1);
-  }
-  .card-img{
-    height:230px;
-    width:calc(100% - 80px);
-    background:white;
-    margin: 0px 40px;
-  }
-  .card-text{
-    height:60px;
-    display:flex;
-    align-items: center;
-  }
-  .rotated{
-    align-self: flex-end;
-  }
-  .card-text p{
-    color:black;
-    font-weight: bold;
-    padding:5px 10px;
-    background:white;
-    border-radius: 0px 5px 5px 0px;
-  }
-  .rotated p{
-    border-radius: 5px 0px 0px 5px;
-  }
-
 </style>

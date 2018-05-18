@@ -6,7 +6,7 @@ const path = require('path');
 const PORT = process.env.PORT || 5000;
 
 const GameDetails = require('./test')
-//console.log(GameDetails.gameFunctions.giveCharacters())
+
 
 let socketConnections = [];
 let Lobbies = [];
@@ -28,9 +28,13 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', function (socket) {
-  socketConnections[socket.id] = {socket: socket, name: 'Aplex'};
+  socketConnections[socket.id] = {socket: socket};
   let _Lobby = ''
   sendLobbies();
+
+  socket.on('setPlayerName', data => {
+    socketConnections[socket.id].name = data;
+  });
 
   socket.on('CreateLobby', (data) => {
     socket.join(data);
@@ -52,19 +56,22 @@ io.on('connection', function (socket) {
     socketConnections[socket.id]._Lobby = data;
     socketConnections[socket.id]._LobbyStatus = false;
     sendNewLobbyMember(data);
+    sendLobbies();
+    socket.emit('JoinedLobby', data);
   });
 
   socket.on('startgame', (data) => {
     LobbyPositionArray[socket.id] = data;
     const GameObject = GameDetails.gameFunctions.giveCharacters(data);
-    console.log(GameObject.mystery);
+    Games[socket.id] = GameObject;
+    let _HostPlayer = '';
     data.forEach((player, index) => {
-      if(GameObject.Players[index].PlayerID === socket.id){
-        socket.emit('PlayerData', GameObject.Players[index]);
+      if(Games[socket.id].Players[index].PlayerID === socket.id){
+        _HostPlayer = Games[socket.id].Players[index];
+        Games[socket.id].Players[index].playersTurn = true;
       }
     });
-    Games[socket.id] = GameObject;
-    io.sockets.in(_Lobby).emit('sendGetPlayerData', {findingIdentification: socket.id});
+    io.sockets.in(_Lobby).emit('sendGetPlayerData', {findingIdentification: socket.id, playerPlaying: {ID: _HostPlayer.PlayerID, NAME: _HostPlayer.PlayerName}});
   });
 
   socket.on('GetPlayerData', (data) => {
@@ -75,6 +82,17 @@ io.on('connection', function (socket) {
       if(player.clientid === socket.id) yourPositon = player.playerPosition;
     });
     socket.emit('ReturnOfPlayerData', YourCardInformationObject.Players[yourPositon]);
+  });
+
+  socket.on('GetPlayerData2', (data) => {
+    let tempIndex = 0;
+    let tempPlayerNamesTurn;
+    Games[data].Players.forEach((player, index) => {
+      if(player.PlayerID === socket.id) tempIndex = index;
+      if(player.playersTurn === true) tempPlayerNamesTurn = player.PlayerName;
+    });
+    socket.emit('ReturnOfPlayerData2', Games[data].Players[tempIndex].playersTurn);
+    socket.emit('changeWhoIsPlaying', {NAME: tempPlayerNamesTurn});
   });
 
   socket.on('LobbyCheck', (data) => {
@@ -111,6 +129,56 @@ io.on('connection', function (socket) {
     sendNewLobbyMember(socketConnections[socket.id]._Lobby);
   });
 
+  socket.on('PlayersTurnSendingCards', (data) => {
+    const newRoundPlayersArray = GameDetails.gameFunctions.PlayersWhoHasCards(data, Games[data.HostID].Players);
+    Games[data.HostID].CurrentRoundPlayers = newRoundPlayersArray;
+    if(Games[data.HostID].CurrentRoundPlayers.length > 0){
+      const firstPlayerID = Games[data.HostID].CurrentRoundPlayers[0].PlayerID;
+      socket.broadcast.to(firstPlayerID).emit('questioning', {Senderid: data.Senderid, HostID: data.HostID, Cards: newRoundPlayersArray[0].PlayerCards});
+    }else{
+      let playerIndex = 0;
+      Games[data.HostID].Players.forEach((player, index) => {
+        if(player.PlayerID === socket.id){
+          player.playersTurn = false;
+          playerIndex = index;
+        }
+      });
+      if(Games[data.HostID].Players.length - 1 > playerIndex){
+        Games[data.HostID].Players[playerIndex + 1].playersTurn = true;
+      }else{
+        Games[data.HostID].Players[0].playersTurn = true;
+      }
+      io.sockets.in(_Lobby).emit('PlayerUpdateData', {HostID: data.HostID});
+    }
+  });
+
+  socket.on('getSentCard', data => {
+    Games[data.HostID].CurrentRoundPlayers.shift();
+    socket.broadcast.to(data.senderID).emit('SendGottenCard', {HostID: data.HostID, Cards: data.Card});
+  });
+
+  socket.on('ConfirmedCardNext', data => {
+    if(Games[data.HostID].CurrentRoundPlayers.length > 0){
+      //Keep asking players for cards
+      socket.broadcast.to(Games[data.HostID].CurrentRoundPlayers[0].PlayerID).emit('questioning', {Senderid: data.senderID, HostID: data.HostID, Cards: Games[data.HostID].CurrentRoundPlayers[0].PlayerCards});
+    }else{
+      //Players turn is over, go to next player.
+      let playerIndex = 0;
+      Games[data.HostID].Players.forEach((player, index) => {
+        if(player.PlayerID === socket.id){
+          player.playersTurn = false;
+          playerIndex = index;
+        }
+      });
+      if(Games[data.HostID].Players.length - 1 > playerIndex){
+        Games[data.HostID].Players[playerIndex + 1].playersTurn = true;
+      }else{
+        Games[data.HostID].Players[0].playersTurn = true;
+      }
+      io.sockets.in(_Lobby).emit('PlayerUpdateData', {HostID: data.HostID});
+    }
+  });
+
   socket.on('disconnect', (reason) => {
     Object.keys(socketConnections).forEach(key => {
       if(socketConnections[key].socket.connected === false){
@@ -127,7 +195,7 @@ io.on('connection', function (socket) {
 
 function sendLobbies(){
   tempLobb = Lobbies.map(lobby => {
-    return lobby.lobbyName;
+    return {LobbyName: lobby.lobbyName, LobbyCount: lobby.amount};
   });
   io.sockets.emit('AllLobies', tempLobb);
 }
